@@ -1,10 +1,14 @@
-# aws-ecs v1.0 
+# aws-ecs v1.2 
 
-ecs에 대한 Hands-On 실습 
+ECR & ECS에 대한 Hands-On 실습 
 
 1. 디렉토리 구조 
 - docker_example : 샘플 컨테이너  
 - ecs_ref : 참조교육파일 
+- manual : 메뉴얼파일 (메뉴얼 내용은 예고없이 변경될 수 있음)
 
-2. 메뉴얼 참조 
-ecs_manual.pdf 
+2. 준비 및 유의사항
+- ECR과 ECS 실습을 위한 최소한의 코드 사용함 
+- 가상 계정명 111122223333은 실제계정명으로 변경하여 사용 
+- CLI를 활용하여 진행되므로 사전개념 이해필요 
+- 교육종료후 Task와 Load Balancer를 제거하여 과금요소 제거 (메뉴얼 가장하단)

@@ -35,7 +35,7 @@
             "essential": true
         }
     ],
-    "executionRoleArn": "arn:aws:iam::111122223333:role/myrole_ecsTaskExecutionRole",
+    "executionRoleArn": "arn:aws:iam::111122223333:role/myrole_ecsTaskExecution",
     "requiresCompatibilities": [
         "FARGATE"
     ],
