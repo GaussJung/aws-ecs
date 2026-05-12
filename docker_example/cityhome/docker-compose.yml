@@ -1,0 +1,10 @@
+services:
+     wasimage:
+        build: webapp_docker/.
+        image: cityhome:latest
+        restart: unless-stopped
+        container_name: city80
+        environment:
+            - TZ=Asia/Seoul
+        ports:
+            - 80:80

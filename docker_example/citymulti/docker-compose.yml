@@ -1,0 +1,13 @@
+services:
+     wasimage:
+        build: webapp_docker/.
+        image: cityview:latest
+        restart: unless-stopped
+        container_name: web80
+        environment:
+            - TZ=Asia/Seoul
+        ports:
+            - 80:80
+        volumes:
+          - ./cities/jeju:/usr/share/nginx/html
+
