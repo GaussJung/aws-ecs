@@ -1,5 +1,5 @@
 {
-    "family": "myEcsSpotWebFamily",
+    "family": "myEcsWebFamily",
     "networkMode": "awsvpc",
     "containerDefinitions": [
         {
@@ -35,7 +35,7 @@
             "essential": true
         }
     ],
-    "executionRoleArn": "arn:aws:iam::111122223333:role/ecsTaskExecutionRole",
+    "executionRoleArn": "arn:aws:iam::111122223333:role/myrole_ecsTaskExecutionRole",
     "requiresCompatibilities": [
         "FARGATE"
     ],

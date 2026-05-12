@@ -18,34 +18,38 @@ sudo setcap cap_net_bind_service=ep $(which rootlesskit)
 systemctl --user restart docker
 
 : 샘플 이미지 작성 (For ECR)
-wget http://data.nuriblock.com/aws/container/ecr_cityhome.zip
-unzip ecr_cityhome.zip && mv ecr_cityhome cityhome 
-cd cityhome 
+git clone https://github.com/GaussJung/aws-ecs.git 
+cd ~/aws-ecs/docker_example/cityhome 
 ( 이미지작성 및 구동완료)
 docker compose up -d --build   
 ※ 위의 명령은 이미지작성과 컨테이너구동 동시에 진행 (즉, 아래 명령과 같음) 
-cd ~/cityhome/web_app
+cd ~/aws-ecs/docker_example/cityhome/webapp_docker
 docker build -t cityhome . && docker run -it -d -p 80:80 --name  city80  cityhome 
 
 
 ==== ECR 이미지 등록 ====
+[환경변수]
+export  myAwsAccount=111122223333
+※ 비고. 11112222333은 콘솔우측 상단에 표기된 계정번호로 변경 (이하 동일)
 
 [ECR생성]  
 aws ecr create-repository --repository-name  cityhome --region ap-northeast-2
 
 [로그인] 
-aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin 111122223333.dkr.ecr.ap-northeast-2.amazonaws.com    
-
+aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin  ${myAwsAccount}.dkr.ecr.ap-northeast-2.amazonaws.com  
+ 
 [ 태깅 ] 
-docker tag  cityhome:latest 111122223333.dkr.ecr.ap-northeast-2.amazonaws.com/cityhome:latest 
+docker tag  cityhome:latest  ${myAwsAccount}.dkr.ecr.ap-northeast-2.amazonaws.com/cityhome:latest 
 
 [ 푸쉬 ] 
-docker push 111122223333.dkr.ecr.ap-northeast-2.amazonaws.com/cityhome:latest
+docker push ${myAwsAccount}.dkr.ecr.ap-northeast-2.amazonaws.com/cityhome:latest
+
 
 ==== IAM생성 및 정책붙임 ====
-aws iam create-role  --role-name ecsTaskExecutionRole --assume-role-policy-document  file://ecs-tasks-trust-policy.json   
- 
-aws iam attach-role-policy  --role-name  ecsTaskExecutionRole  --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy 
+cd ~/aws-ecs/ecs_ref
+aws iam create-role  --role-name myrole_ecsTaskExecution --assume-role-policy-document  file://ecs-tasks-trust-policy.json   
+
+aws iam attach-role-policy  --role-name  myrole_ecsTaskExecution --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy 
 
 [ ECS 생성 ] 
 ▶  STEP2-1. 클러스터 생성 :
@@ -61,8 +65,8 @@ aws ecs register-task-definition  --cli-input-json  file://myEcsWebServer-spot.j
 위의 작업은 반복시마다 태스크정의가 개정되어짐 (myEcsSpotWebFamily:1 --> myEcsSpotWebFamily:2)
 
 ※ 테스크삭제 (잘못만들어졌을 경우) 
-aws ecs delete-task-definitions   --task-definition myEcsSpotWebFamily:1
 aws ecs deregister-task-definition  --task-definition myEcsSpotWebFamily:1  
+aws ecs delete-task-definitions   --task-definition myEcsSpotWebFamily:1
 
 ▶  STEP2-3. 서비스 생성   
 https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_CreateService.html 

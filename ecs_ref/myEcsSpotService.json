@@ -1,5 +1,5 @@
 {
-    "taskDefinition": "myEcsSpotWebFamily:1",
+    "taskDefinition": "myEcsWebFamily",
     "desiredCount": 2,
     "capacityProviderStrategy": [
         {
