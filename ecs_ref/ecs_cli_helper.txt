@@ -18,38 +18,34 @@ sudo setcap cap_net_bind_service=ep $(which rootlesskit)
 systemctl --user restart docker
 
 : 샘플 이미지 작성 (For ECR)
-git clone https://github.com/GaussJung/aws-ecs.git 
-cd ~/aws-ecs/docker_example/cityhome 
+wget http://data.nuriblock.com/aws/container/ecr_cityhome.zip
+unzip ecr_cityhome.zip && mv ecr_cityhome cityhome 
+cd cityhome 
 ( 이미지작성 및 구동완료)
 docker compose up -d --build   
 ※ 위의 명령은 이미지작성과 컨테이너구동 동시에 진행 (즉, 아래 명령과 같음) 
-cd ~/aws-ecs/docker_example/cityhome/webapp_docker
+cd ~/cityhome/web_app
 docker build -t cityhome . && docker run -it -d -p 80:80 --name  city80  cityhome 
 
 
 ==== ECR 이미지 등록 ====
-[환경변수]
-export  myAwsAccount=111122223333
-※ 비고. 11112222333은 콘솔우측 상단에 표기된 계정번호로 변경 (이하 동일)
 
 [ECR생성]  
 aws ecr create-repository --repository-name  cityhome --region ap-northeast-2
 
 [로그인] 
-aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin  ${myAwsAccount}.dkr.ecr.ap-northeast-2.amazonaws.com  
- 
+aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin 111122223333.dkr.ecr.ap-northeast-2.amazonaws.com    
+
 [ 태깅 ] 
-docker tag  cityhome:latest  ${myAwsAccount}.dkr.ecr.ap-northeast-2.amazonaws.com/cityhome:latest 
+docker tag  cityhome:latest 111122223333.dkr.ecr.ap-northeast-2.amazonaws.com/cityhome:latest 
 
 [ 푸쉬 ] 
-docker push ${myAwsAccount}.dkr.ecr.ap-northeast-2.amazonaws.com/cityhome:latest
-
+docker push 111122223333.dkr.ecr.ap-northeast-2.amazonaws.com/cityhome:latest
 
 ==== IAM생성 및 정책붙임 ====
-cd ~/aws-ecs/ecs_ref
-aws iam create-role  --role-name myrole_ecsTaskExecution --assume-role-policy-document  file://ecs-tasks-trust-policy.json   
-
-aws iam attach-role-policy  --role-name  myrole_ecsTaskExecution --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy 
+aws iam create-role  --role-name ecsTaskExecutionRole --assume-role-policy-document  file://ecs-tasks-trust-policy.json   
+ 
+aws iam attach-role-policy  --role-name  ecsTaskExecutionRole  --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy 
 
 [ ECS 생성 ] 
 ▶  STEP2-1. 클러스터 생성 :
@@ -65,18 +61,18 @@ aws ecs register-task-definition  --cli-input-json  file://myEcsWebServer-spot.j
 위의 작업은 반복시마다 태스크정의가 개정되어짐 (myEcsSpotWebFamily:1 --> myEcsSpotWebFamily:2)
 
 ※ 테스크삭제 (잘못만들어졌을 경우) 
-aws ecs deregister-task-definition  --task-definition myEcsSpotWebFamily:1  
 aws ecs delete-task-definitions   --task-definition myEcsSpotWebFamily:1
+aws ecs deregister-task-definition  --task-definition myEcsSpotWebFamily:1  
 
 ▶  STEP2-3. 서비스 생성   
 https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_CreateService.html 
 
-확인사항 : subnet-ID, 보안그룹-ID 
 aws ecs create-service \
-  --cluster myEcsSpotCluster \
-  --service-name myEcsSpotService \
-  --network-configuration "awsvpcConfiguration={subnets=[subnet-bbaa91111,subnet-ddcc2222],securityGroups=[sg-aaaa1111bbbb],assignPublicIp=ENABLED}" \
-  --cli-input-json file://myEcsSpotService.json 
+    --cluster myEcsSpotCluster \
+    --service-name myEcsSpotService  \
+    --network-configuration  "awsvpcConfiguration={subnets=['subnet-bbaa986d5','subnet-ddaabbbb67f1'],securityGroups=[sg-aaaa1111bbbb],assignPublicIp=ENABLED}" \
+	--cli-input-json file://myEcsSpotService.json 
+
 
 ▶  LB + AutoScaling적용  
 
@@ -99,67 +95,46 @@ aws elbv2 create-listener --load-balancer-arn arn:aws:elasticloadbalancing:ap-no
 [수량조절]
 aws ecs update-service  \
 --cluster myEcsSpotCluster \
---service myEcsSpotService  \
+--service 111122223333  \
 --desired-count 0
 
 [ 로드밸런서 적용 ] 
 aws ecs update-service  \
 --cluster myEcsSpotCluster \
---service myEcsSpotService \
---desired-count 4  \
---load-balancers  "targetGroupArn=arn:aws:elasticloadbalancing:ap-northeast-2:111122223333:targetgroup/myECS-SVC-Group/64181b149ada91af,containerName=myEcsSpotWebServer,containerPort=80"  
- 
+--service 111122223333 \
+--desired-count 2  \
+--load-balancers  "targetGroupArn=arn:aws:elasticloadbalancing:ap-northeast-2:111122223333:targetgroup/myECS-SVC-Group/78acf3e1a4c15b45,containerName=myEcsSpotWebServer,containerPort=80"  
 
+ 
 ▶ 오토스케일링 적용 
  
 [오토스케일링 수량조정]
+- 사전수행 0개로 변경 
+aws ecs update-service  \
+--cluster myEcsSpotCluster \
+--service 111122223333  \
+--desired-count 0  
 
-- (선택) Task Definition이 업데이트된 경우 서비스에 최신 Revision 반영
-aws ecs update-service \
-  --cluster myEcsSpotCluster \
-  --service myEcsSpotService \
-  --task-definition myEcsWebFamily
-
-
-A1) Application Auto Scaling 대상 등록 (2개 ~ 6개)
-- 중요사항: Resource-ID 형식 = service/클러스터명/서비스명
-
+A1) 어플리케이션 오토스케일링 타겟 설정 ( 2개 ~ 6개)
+- 중요사항 : Resource-ID : 클러스터명 + 서비스명 
 aws application-autoscaling register-scalable-target \
-  --service-namespace ecs \
-  --scalable-dimension ecs:service:DesiredCount \
-  --resource-id service/myEcsSpotCluster/myEcsSpotService \
-  --min-capacity 2 \
-  --max-capacity 6 \
-  --region ap-northeast-2
+--service-namespace ecs --scalable-dimension ecs:service:DesiredCount  \
+--resource-id service/myEcsSpotCluster/111122223333 \
+--min-capacity 2 --max-capacity 6 --region ap-northeast-2  
+ 
 
-aws application-autoscaling register-scalable-target \
-  --service-namespace ecs \
-  --scalable-dimension ecs:service:DesiredCount \
-  --resource-id service/myEcsSpotCluster/myEcsSpotService \
-  --min-capacity 0 \
-  --max-capacity 0 \
-  --region ap-northeast-2
-
-
-A2) 추적 정책 등록 - CPU
-- ECS Service 평균 CPU 사용률을 50% 수준으로 유지
-- 확장 Cooldown: 70초
-- 축소 Cooldown: 60초
-
+A2) 추적정책등록-CPU (CPU이용률 40% 초과시 자원증대, 확장시 70초간 확인, 수축시 60초 확인)
 aws application-autoscaling put-scaling-policy \
-  --service-namespace ecs \
-  --scalable-dimension ecs:service:DesiredCount \
-  --resource-id service/myEcsSpotCluster/myEcsSpotService \
-  --policy-name my-ecs-scaling-policy \
-  --policy-type TargetTrackingScaling \
-  --target-tracking-scaling-policy-configuration '{"TargetValue":50.0,"PredefinedMetricSpecification":{"PredefinedMetricType":"ECSServiceAverageCPUUtilization"},"ScaleOutCooldown":70,"ScaleInCooldown":60}' \
-  --region ap-northeast-2
-
+--service-namespace ecs --scalable-dimension ecs:service:DesiredCount \
+--resource-id service/myEcsSpotCluster/111122223333 \
+--policy-name my-ecs-scaling-policy --policy-type TargetTrackingScaling \
+--target-tracking-scaling-policy-configuration '{ "TargetValue": 40.0, "PredefinedMetricSpecification": {"PredefinedMetricType": "ECSServiceAverageCPUUtilization" }, "ScaleOutCooldown": 70,"ScaleInCooldown": 60}'
+ 
 
 [ 자원삭제 ] 
 : ECS Task 및 서비스삭제 (콘솔 삭제 혹은 아래 CLI)
-aws ecs update-service  --cluster myEcsSpotCluster  --service myEcsSpotService --desired-count 0 
-aws ecs delete-service   --cluster myEcsSpotCluster  --service myEcsSpotService
+aws ecs update-service  --cluster myEcsSpotCluster  --service 111122223333 --desired-count 0 
+aws ecs delete-service   --cluster myEcsSpotCluster  --service 111122223333
 
 : LoadBalancer 삭제 (콘솔 삭제 혹은 아래 CLI)
 aws elbv2 delete-load-balancer --load-balancer-arn arn:aws:elasticloadbalancing:ap-northeast-2:111122223333:loadbalancer/app/myECS-SVC-LB/64181b149ada91af 
@@ -168,37 +143,10 @@ aws elbv2 delete-load-balancer --load-balancer-arn arn:aws:elasticloadbalancing:
 aws elbv2 delete-target-group --target-group-arn arn:aws:elasticloadbalancing:ap-northeast-2:111122223333:targetgroup/myECS-SVC-Group/78acf3e1a4c15b45 
 
 : ECS Task 등록해제  
-aws ecs deregister-task-definition --task-definition myEcsWebFamily:1
-aws ecs deregister-task-definition --task-definition myEcsWebFamily:2
-aws ecs deregister-task-definition --task-definition myEcsWebFamily:3
+aws ecs deregister-task-definition --task-definition myEcsSpotWebFamily:1 
 
 : ECS Cluster 삭제 
-aws ecs delete-task-definitions \
-  --task-definitions \
-  myEcsWebFamily:1 \
-  myEcsWebFamily:2 \
-  myEcsWebFamily:3 \
+aws ecs delete-cluster --cluster myEcsSpotCluster  
 
 : 로그그룹삭제
 aws logs delete-log-group --log-group-name    /ecs/myEcsSpotWebServer 
-
-: 로드밸런서 정책 수량 조절 
-aws application-autoscaling register-scalable-target \
-  --service-namespace ecs \
-  --scalable-dimension ecs:service:DesiredCount \
-  --resource-id service/myEcsSpotCluster/myEcsSpotService \
-  --min-capacity 0 \
-  --max-capacity 0 \
-  --region ap-northeast-2
-
-: 삭제 확인 
-aws ecs describe-services \
-  --cluster myEcsSpotCluster \
-  --services myEcsSpotService \
-  --query "services[0].{desired:desiredCount,running:runningCount,pending:pendingCount}"
-: 아래처럼 나오면 추가요금 발생되지 않음 
-{
-  "desired": 0,
-  "running": 0,
-  "pending": 0
-}
