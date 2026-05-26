@@ -1,6 +1,6 @@
 {
     "taskDefinition": "myEcsWebFamily",
-    "desiredCount": 2,
+    "desiredCount": 4,
     "capacityProviderStrategy": [
         {
             "base": 0,
