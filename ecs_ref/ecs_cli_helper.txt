@@ -95,13 +95,13 @@ aws elbv2 create-listener --load-balancer-arn arn:aws:elasticloadbalancing:ap-no
 [수량조절]
 aws ecs update-service  \
 --cluster myEcsSpotCluster \
---service 111122223333  \
+--service myEcsSpotService  \
 --desired-count 0
 
 [ 로드밸런서 적용 ] 
 aws ecs update-service  \
 --cluster myEcsSpotCluster \
---service 111122223333 \
+--service myEcsSpotService \
 --desired-count 2  \
 --load-balancers  "targetGroupArn=arn:aws:elasticloadbalancing:ap-northeast-2:111122223333:targetgroup/myECS-SVC-Group/78acf3e1a4c15b45,containerName=myEcsSpotWebServer,containerPort=80"  
 
@@ -112,14 +112,14 @@ aws ecs update-service  \
 - 사전수행 0개로 변경 
 aws ecs update-service  \
 --cluster myEcsSpotCluster \
---service 111122223333  \
+--service myEcsSpotService  \
 --desired-count 0  
 
 A1) 어플리케이션 오토스케일링 타겟 설정 ( 2개 ~ 6개)
 - 중요사항 : Resource-ID : 클러스터명 + 서비스명 
 aws application-autoscaling register-scalable-target \
 --service-namespace ecs --scalable-dimension ecs:service:DesiredCount  \
---resource-id service/myEcsSpotCluster/111122223333 \
+--resource-id service/myEcsSpotCluster/myEcsSpotService \
 --min-capacity 2 --max-capacity 6 --region ap-northeast-2  
  
 
