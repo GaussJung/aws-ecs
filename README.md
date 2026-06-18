@@ -1,4 +1,4 @@
-# aws-ecs v1.22 
+# aws-ecs v1.23 
 
 ECR & ECS에 대한 Hands-On 실습 
 
